@@ -1,8 +1,7 @@
-import wNim
+import strformat, strutils, times
 
-import chronos, nimcrypto, strutils
 import libp2p/daemon/daemonapi
-import strformat
+import wNim ,chronos, nimcrypto
 
 when not(compileOption("threads")):
   {.fatal: "Please, compile this program with the --threads:on option!".}
@@ -21,19 +20,15 @@ type
 
 type
   MenuID = enum
-    idVertical = wIdUser, idHorizontal, idExit, idExample
+    idVertical, idHorizontal, idOpen, idExit
 
-  Example = object
-    name: string
-    vfl: string
-    show: proc ()
 
 let app = App()
 let frame = Frame(title="2DeFi", size=(900, 600))
 let win = Frame(frame, title="console", size=(400, 400))
 let panel = Panel(win)
 
-let splitter = Splitter(frame, style=wSpHorizontal or wDoubleBuffered, size=(8, 8))
+let splitter = Splitter(frame, style = wSpHorizontal or wDoubleBuffered, size=(1, 1))
 let statusBar = StatusBar(frame)
 let menuBar = MenuBar(frame)
 
@@ -58,11 +53,11 @@ command.wEvent_TextEnter do ():
 
 template dhtFindPeer() {.dirty.} =
     var peerId = PeerID.init(parts[1]).value
-    consoleString = "= Searching for peer " & peerId.pretty() & "\r\n"
+    consoleString = "Searching for peer " & peerId.pretty() & "\r\n"
     console.appendText consoleString
 
     var id = await udata.api.dhtFindPeer(peerId)
-    consoleString = "= Peer " & parts[1] & " found at addresses:\r\n"
+    consoleString = "Peer " & parts[1] & " found at addresses:\r\n"
     console.appendText consoleString
 
     for item in id.addresses:
@@ -92,18 +87,18 @@ proc serveThread(udata: CustomData) {.async.} =
 
           var address = MultiAddress.init(multiCodec("p2p-circuit")).value
           address = MultiAddress.init(multiCodec("p2p"), peerId).value
-          consoleString = "= Connecting to peer " & $address & "\r\n"
+          consoleString = "Connecting to peer " & $address & "\r\n"
           console.appendText consoleString
           echo consoleString
 
           await udata.api.connect(peerId, @[address], 30)
-          consoleString = "= Opening stream to peer chat " & parts[1] & "\r\n"
+          consoleString = "Opening stream to peer chat " & parts[1] & "\r\n"
           console.appendText consoleString
           echo consoleString
 
           var stream = await udata.api.openStream(peerId, ServerProtocols)
           udata.remotes.add(stream.transp)
-          consoleString = "= Connected to peer chat " & parts[1] & "\r\n"
+          consoleString = "Connected to peer chat " & parts[1] & "\r\n"
           console.appendText consoleString
           echo consoleString
 
@@ -118,10 +113,10 @@ proc serveThread(udata: CustomData) {.async.} =
         var parts = line.split(" ")
         if len(parts) == 2:
           var peerId = PeerID.init(parts[1]).value
-          consoleString = "= Searching for peers connected to peer " & parts[1] & "\r\n"
+          consoleString = "Searching for peers connected to peer " & parts[1] & "\r\n"
           console.appendText consoleString
           var peers = await udata.api.dhtFindPeersConnectedToPeer(peerId) 
-          consoleString = &"= Found {len(peers)} connected to peer {parts[1]}\r\n"
+          consoleString = &"Found {len(peers)} connected to peer {parts[1]}\r\n"
           console.appendText consoleString
           for item in peers:
             var peer = item.peer
@@ -158,9 +153,10 @@ proc serveThread(udata: CustomData) {.async.} =
     except:
       consoleString = getCurrentException().msg
 
+var data = new CustomData
+
 proc p2pdaemon() {.thread.} =
  {.gcsafe.}:
-  var data = new CustomData
   data.remotes = newSeq[StreamTransport]()
 
   if rfd == asyncInvalidPipe or wfd == asyncInvalidPipe:
@@ -170,14 +166,14 @@ proc p2pdaemon() {.thread.} =
 
   data.serveFut = serveThread(data)
 
-  consoleString = "= Starting P2P node\r\n"
+  consoleString = "Starting P2P node\r\n"
   console.appendText consoleString
   data.api = waitFor newDaemonApi({DHTFull, Bootstrap})
   var id = waitFor data.api.identity()
 
   proc streamHandler(api: DaemonAPI, stream: P2PStream) {.async.} =
       {.gcsafe.}:
-          consoleString = "= Peer " & stream.peer.pretty() & " joined chat\r\n"
+          consoleString = "Peer " & stream.peer.pretty() & " joined chat\r\n"
           console.appendText consoleString
           data.remotes.add(stream.transp)
           while true:
@@ -188,7 +184,15 @@ proc p2pdaemon() {.thread.} =
               console.appendText consoleString
 
   waitFor data.api.addHandler(ServerProtocols, streamHandler)
-  consoleString = "= Your PeerID is " & id.peer.pretty() & "\r\n"
+  var peers = waitFor data.api.listPeers()
+  consoleString = &"There are {peers.len} nodes connected \r\n"
+  console.appendText consoleString
+
+  for p in peers:
+    consoleString = p.peer.pretty()
+    console.appendText consoleString
+
+  consoleString = "Your PeerID is " & id.peer.pretty() & "\r\n"
   console.appendText consoleString
   waitFor data.serveFut
 
@@ -200,6 +204,13 @@ proc switchSplitter(mode: int) =
   statusBar.refresh()
   let size = frame.clientSize
   splitter.move(size.width div 2, size.height div 2)
+
+
+let menuFile = Menu(menuBar, "&File")
+menuFile.append(idOpen, "&Open\tCtrl + O", "Open a file")
+menuFile.appendSeparator()
+menuFile.append(idExit, "E&xit", "Exit the program.")
+
 
 let menu = Menu(menuBar, "&Layout")
 menu.appendRadioItem(idHorizontal, "&Horizontal").check()
@@ -220,6 +231,12 @@ frame.wEvent_Menu do (event: wEvent):
     if splitter.isVertical:
       switchSplitter(wSpHorizontal)
 
+  of idOpen:  
+    let files = FileDialog(frame, style=wFdOpen or wFdFileMustExist).display()
+    if files.len != 0:
+      var id = waitFor data.api.identity()
+      consoleString = &"[{now()}]:[{id.peer.pretty()}]: shared {files[0]}"
+      console.appendText consoleString
   else:
     discard
 
