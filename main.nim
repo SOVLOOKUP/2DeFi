@@ -3,6 +3,9 @@ import strformat, strutils, times,json,os, streams, sequtils
 import libp2p/daemon/daemonapi
 import wNim ,chronos, nimcrypto, protobuf
 
+import winim/inc/windef
+import wNim/private/winimx
+
 when not(compileOption("threads")):
   {.fatal: "Please, compile this program with the --threads:on option!".}
 
@@ -26,12 +29,16 @@ let frame = Frame(title="2DeFi", size=(900, 600))
 let win = Frame(frame, title="console", size=(400, 400))
 let panel = Panel(win)
 
-let splitter = Splitter(frame, style = wSpHorizontal or wDoubleBuffered, size=(1, 1))
+let splitter = Splitter(frame, style = wSpHorizontal or wDoubleBuffered, size=(5, 5))
 let statusBar = StatusBar(frame)
 let menuBar = MenuBar(frame)
 
 let console = TextCtrl(splitter.panel1, style= wTeRich or wTeMultiLine or wTeDontWrap or wVScroll or wTeReadOnly)
 console.font = Font(12, faceName="Consolas", encoding=wFontEncodingCp1252)
+# console.formatSelection(console.font, wWhite, wBlack)
+# SetTextColor(console.mHwnd, COLORREF wWhite)
+# console.setBackgroundColor wBlack
+
 
 var consoleString = ""
 
@@ -41,6 +48,10 @@ var writePipe = fromPipe(wfd)
 
 let command = TextCtrl(splitter.panel2, style= wBorderSunken)
 command.font = Font(12, faceName="Consolas", encoding=wFontEncodingCp1252)
+# command.setBackgroundColor wBlack
+command.formatSelection(command.font, wWhite, wBlack)
+
+
 command.wEvent_TextEnter do (): 
     var line = command.getValue()
     let res = waitFor writePipe.write(line & "\r\n")
@@ -203,9 +214,6 @@ proc p2pdaemon() {.thread.} =
   consoleString = "Starting P2P node\r\n"
   console.appendText consoleString
 
-  var keyFile = readFile("key")
-  var buffer = newSeq[byte](keyFile.len) 
-  copyMem(buffer[0].addr, keyFile[0].addr, keyFile.len)
 
   var config: JsonNode
   var alias = ""
