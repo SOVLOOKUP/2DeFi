@@ -751,19 +751,15 @@ proc newDaemonApi*(flags: set[P2PDaemonFlags] = {},
   # Starting daemon process
   # echo "Starting ", cmd, " ", args.join(" ")
   api.process = startProcess(cmd, "", args, env, {poEchoCmd,poStdErrToStdOut, poUsePath, poParentStreams})
-  # var outp = api.process.outputStream
-  # var line = ""
   # Waiting until daemon will not be bound to control socket.
   while true:
-    # if outp.readLine(line):
-      # echo "from daemonapi: ",line
     if not api.process.running():
       raise newException(DaemonLocalError,
                          "Daemon executable could not be started!")
     let res = await socketExists(api.address)
     if res:
       break
-    await sleepAsync(500.milliseconds)
+    await sleepAsync(100.milliseconds)
 
   if WaitBootstrap in api.flags:
     while true:

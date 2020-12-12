@@ -16,6 +16,7 @@ A Decentralized and Deduplicated File system for ownership/copyright, cost-effic
 
 # TODO:
 
+- [X] Peer ID alias
 - [ ] Record storage and file information on blockchain
 - [ ] Play audio/video/picture from records with FFmpeg
 - [ ] File and domain name mapping

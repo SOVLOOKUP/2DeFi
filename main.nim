@@ -1,7 +1,7 @@
-import strformat, strutils, times
+import strformat, strutils, times,json,os, streams, sequtils
 
 import libp2p/daemon/daemonapi
-import wNim ,chronos, nimcrypto
+import wNim ,chronos, nimcrypto, protobuf
 
 when not(compileOption("threads")):
   {.fatal: "Please, compile this program with the --threads:on option!".}
@@ -17,11 +17,9 @@ type
     wfd: AsyncFD
     serveFut: Future[void]
 
-
 type
   MenuID = enum
     idVertical, idHorizontal, idOpen, idExit
-
 
 let app = App()
 let frame = Frame(title="2DeFi", size=(900, 600))
@@ -51,13 +49,49 @@ command.wEvent_TextEnter do ():
     command.clear
 
 
+proc aliasDialog(owner: wWindow): string =
+  var alias = ""
+  let dialog = Frame(owner=owner, size=(320, 200), style=wCaption or wSystemMenu)
+  let panel = Panel(dialog)
+
+  let statictext = StaticText(panel, label="Please enter the alias:", pos=(10, 10))
+  let textctrl = TextCtrl(panel, pos=(20, 50), size=(270, 30), style=wBorderSunken)
+  let buttonOk = Button(panel, label="&OK", size=(90, 30), pos=(100, 120))
+  let buttonCancel = Button(panel, label="&Cancel", size=(90, 30), pos=(200, 120))
+
+  buttonOk.setDefault()
+
+  dialog.wIdDelete do ():
+    textctrl.clear()
+
+  dialog.wEvent_Close do ():
+    dialog.endModal()
+
+  buttonOk.wEvent_Button do ():
+    alias = textctrl.value
+    dialog.close()
+
+  buttonCancel.wEvent_Button do ():
+    dialog.close()
+    quit()
+
+  dialog.shortcut(wAccelNormal, wKey_Esc) do ():
+    buttonCancel.click()
+
+  dialog.center()
+  dialog.showModal()
+  dialog.delete()
+
+  result = alias
+
+
 template dhtFindPeer() {.dirty.} =
     var peerId = PeerID.init(parts[1]).value
-    consoleString = "Searching for peer " & peerId.pretty() & "\r\n"
+    consoleString = &"Searching for peer {peerId.pretty()}\r\n"
     console.appendText consoleString
 
     var id = await udata.api.dhtFindPeer(peerId)
-    consoleString = "Peer " & parts[1] & " found at addresses:\r\n"
+    consoleString = &"Peer {parts[1]} found at addresses:\r\n"
     console.appendText consoleString
 
     for item in id.addresses:
@@ -113,7 +147,7 @@ proc serveThread(udata: CustomData) {.async.} =
         var parts = line.split(" ")
         if len(parts) == 2:
           var peerId = PeerID.init(parts[1]).value
-          consoleString = "Searching for peers connected to peer " & parts[1] & "\r\n"
+          consoleString = &"Searching for peers connected to peer {parts[1]}\r\n"
           console.appendText consoleString
           var peers = await udata.api.dhtFindPeersConnectedToPeer(peerId) 
           consoleString = &"Found {len(peers)} connected to peer {parts[1]}\r\n"
@@ -168,9 +202,33 @@ proc p2pdaemon() {.thread.} =
 
   consoleString = "Starting P2P node\r\n"
   console.appendText consoleString
-  data.api = waitFor newDaemonApi({DHTFull, Bootstrap})
-  var id = waitFor data.api.identity()
 
+  var keyFile = readFile("key")
+  var buffer = newSeq[byte](keyFile.len) 
+  copyMem(buffer[0].addr, keyFile[0].addr, keyFile.len)
+
+  var config: JsonNode
+  var alias = ""
+  if fileExists("config.json"):
+    config = parseFile("config.json")
+    alias = config["alias"].getStr
+    if alias == "":
+      alias = aliasDialog(frame)
+      if alias != "":
+        MessageDialog(frame, alias, "node alias:", wOk or wIconInformation).display()
+        config["alias"] = %alias
+  else:
+    config = %* {"alias":"","id":""}
+    alias = aliasDialog(frame)
+    if alias != "":
+      MessageDialog(frame, alias, "node alias:", wOk or wIconInformation).display()
+      config["alias"] = %alias
+
+
+  data.api = waitFor newDaemonApi({DHTFull, Bootstrap},id="")
+  var id = waitFor data.api.identity()
+  config["id"] = % id.peer.pretty()
+  writeFile("config.json", $config)
   proc streamHandler(api: DaemonAPI, stream: P2PStream) {.async.} =
       {.gcsafe.}:
           consoleString = "Peer " & stream.peer.pretty() & " joined chat\r\n"
@@ -185,14 +243,14 @@ proc p2pdaemon() {.thread.} =
 
   waitFor data.api.addHandler(ServerProtocols, streamHandler)
   var peers = waitFor data.api.listPeers()
-  consoleString = &"There are {peers.len} nodes connected \r\n"
+  consoleString = &"There are {peers.len} nodes connected\r\n"
   console.appendText consoleString
 
   for p in peers:
     consoleString = p.peer.pretty()
     console.appendText consoleString
 
-  consoleString = "Your PeerID is " & id.peer.pretty() & "\r\n"
+  consoleString = &"Your PeerID is {alias}:{id.peer.pretty()}\r\n"
   console.appendText consoleString
   waitFor data.serveFut
 
@@ -204,7 +262,6 @@ proc switchSplitter(mode: int) =
   statusBar.refresh()
   let size = frame.clientSize
   splitter.move(size.width div 2, size.height div 2)
-
 
 let menuFile = Menu(menuBar, "&File")
 menuFile.append(idOpen, "&Open\tCtrl + O", "Open a file")

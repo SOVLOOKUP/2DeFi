@@ -1014,12 +1014,12 @@ proc initProtoField*(index: int, key: PublicKey|PrivateKey): ProtoField {.
   ## Initialize ProtoField with PublicKey/PrivateKey ``key``.
   result = initProtoField(index, key.getBytes().tryGet())
 
-proc initProtoField*(index: int, sig: Signature): ProtoField {.deprecated.} =
+proc initProtoField*(index: int, sig: Signature): ProtoField  =
   ## Initialize ProtoField with Signature ``sig``.
   result = initProtoField(index, sig.getBytes())
 
 proc getValue*[T: PublicKey|PrivateKey](data: var ProtoBuffer, field: int,
-                                        value: var T): int {.deprecated.} =
+                                        value: var T): int  =
   ## Read PublicKey/PrivateKey from ProtoBuf's message and validate it.
   var buf: seq[byte]
   var key: PublicKey
@@ -1030,8 +1030,7 @@ proc getValue*[T: PublicKey|PrivateKey](data: var ProtoBuffer, field: int,
     else:
       value = key
 
-proc getValue*(data: var ProtoBuffer, field: int, value: var Signature): int {.
-     deprecated.} =
+proc getValue*(data: var ProtoBuffer, field: int, value: var Signature): int =
   ## Read ``Signature`` from ProtoBuf's message and validate it.
   var buf: seq[byte]
   var sig: Signature
