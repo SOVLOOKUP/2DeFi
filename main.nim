@@ -1,10 +1,13 @@
 import strformat, strutils, times,json,os, streams, sequtils
 
 import libp2p/daemon/daemonapi
-import wNim ,chronos, nimcrypto, protobuf
 
+import wNim ,chronos, nimcrypto
 import winim/inc/windef
 import wNim/private/winimx
+import wHyperlink
+
+import i18n
 
 when not(compileOption("threads")):
   {.fatal: "Please, compile this program with the --threads:on option!".}
@@ -22,12 +25,14 @@ type
 
 type
   MenuID = enum
-    idVertical, idHorizontal, idOpen, idExit
+    idVertical, idHorizontal, idOpen, idExit,idenUS, idzhCN
 
 let app = App()
 let frame = Frame(title="2DeFi", size=(900, 600))
 let win = Frame(frame, title="console", size=(400, 400))
 let panel = Panel(win)
+
+# panel.setForegroundColor wWhite
 
 let splitter = Splitter(frame, style = wSpHorizontal or wDoubleBuffered, size=(5, 5))
 let statusBar = StatusBar(frame)
@@ -35,12 +40,7 @@ let menuBar = MenuBar(frame)
 
 let console = TextCtrl(splitter.panel1, style= wTeRich or wTeMultiLine or wTeDontWrap or wVScroll or wTeReadOnly)
 console.font = Font(12, faceName="Consolas", encoding=wFontEncodingCp1252)
-# console.formatSelection(console.font, wWhite, wBlack)
-# SetTextColor(console.mHwnd, COLORREF wWhite)
-# console.setBackgroundColor wBlack
 
-
-var consoleString = ""
 
 var (rfd, wfd) = createAsyncPipe()
 var writePipe = fromPipe(wfd)
@@ -51,6 +51,7 @@ command.font = Font(12, faceName="Consolas", encoding=wFontEncodingCp1252)
 # command.setBackgroundColor wBlack
 command.formatSelection(command.font, wWhite, wBlack)
 
+var consoleString = ""
 
 command.wEvent_TextEnter do (): 
     var line = command.getValue()
@@ -62,13 +63,14 @@ command.wEvent_TextEnter do ():
 
 proc aliasDialog(owner: wWindow): string =
   var alias = ""
+
   let dialog = Frame(owner=owner, size=(320, 200), style=wCaption or wSystemMenu)
   let panel = Panel(dialog)
 
-  let statictext = StaticText(panel, label="Please enter the alias:", pos=(10, 10))
+  let statictext = StaticText(panel, label= T"Please enter the alias:", pos=(10, 10))
   let textctrl = TextCtrl(panel, pos=(20, 50), size=(270, 30), style=wBorderSunken)
-  let buttonOk = Button(panel, label="&OK", size=(90, 30), pos=(100, 120))
-  let buttonCancel = Button(panel, label="&Cancel", size=(90, 30), pos=(200, 120))
+  let buttonOk = Button(panel, label= T"OK", size=(90, 30), pos=(100, 120))
+  let buttonCancel = Button(panel, label= T"Cancel", size=(90, 30), pos=(200, 120))
 
   buttonOk.setDefault()
 
@@ -98,11 +100,11 @@ proc aliasDialog(owner: wWindow): string =
 
 template dhtFindPeer() {.dirty.} =
     var peerId = PeerID.init(parts[1]).value
-    consoleString = &"Searching for peer {peerId.pretty()}\r\n"
+    consoleString = T"Searching for peer " & peerId.pretty() & "\r\n"
     console.appendText consoleString
 
     var id = await udata.api.dhtFindPeer(peerId)
-    consoleString = &"Peer {parts[1]} found at addresses:\r\n"
+    consoleString = T"Peer " & parts[1] & "found at addresses: " & "\r\n"
     console.appendText consoleString
 
     for item in id.addresses:
@@ -132,22 +134,21 @@ proc serveThread(udata: CustomData) {.async.} =
 
           var address = MultiAddress.init(multiCodec("p2p-circuit")).value
           address = MultiAddress.init(multiCodec("p2p"), peerId).value
-          consoleString = "Connecting to peer " & $address & "\r\n"
+          consoleString = T"Connecting to peer " & $address & "\r\n"
           console.appendText consoleString
           echo consoleString
 
           await udata.api.connect(peerId, @[address], 30)
-          consoleString = "Opening stream to peer chat " & parts[1] & "\r\n"
+          consoleString = T"Opening stream to peer chat " & parts[1] & "\r\n"
           console.appendText consoleString
           echo consoleString
 
           var stream = await udata.api.openStream(peerId, ServerProtocols)
           udata.remotes.add(stream.transp)
-          consoleString = "Connected to peer chat " & parts[1] & "\r\n"
+          consoleString = T"Connected to peer chat " & parts[1] & "\r\n"
           console.appendText consoleString
           echo consoleString
 
-          echo "before remoteReader"
           asyncCheck remoteReader(stream.transp)
       elif line.startsWith("/search"):
         var parts = line.split(" ")
@@ -161,7 +162,7 @@ proc serveThread(udata: CustomData) {.async.} =
           consoleString = &"Searching for peers connected to peer {parts[1]}\r\n"
           console.appendText consoleString
           var peers = await udata.api.dhtFindPeersConnectedToPeer(peerId) 
-          consoleString = &"Found {len(peers)} connected to peer {parts[1]}\r\n"
+          consoleString = &"{len(peers)} connected to peer {parts[1]}\r\n"
           console.appendText consoleString
           for item in peers:
             var peer = item.peer
@@ -205,28 +206,17 @@ proc p2pdaemon() {.thread.} =
   data.remotes = newSeq[StreamTransport]()
 
   if rfd == asyncInvalidPipe or wfd == asyncInvalidPipe:
-      raise newException(ValueError, "Could not initialize pipe!")
+      raise newException(ValueError, T"Could not initialize pipe!")
 
   data.consoleFd = rfd
 
   data.serveFut = serveThread(data)
 
-  consoleString = "Starting P2P node\r\n"
+  consoleString = T"Starting P2P node" & "\r\n"
   console.appendText consoleString
 
-
-  var config: JsonNode
-  var alias = ""
-  if fileExists("config.json"):
-    config = parseFile("config.json")
-    alias = config["alias"].getStr
-    if alias == "":
-      alias = aliasDialog(frame)
-      if alias != "":
-        MessageDialog(frame, alias, "node alias:", wOk or wIconInformation).display()
-        config["alias"] = %alias
-  else:
-    config = %* {"alias":"","id":""}
+  var alias = config["alias"].getStr
+  if alias == "":
     alias = aliasDialog(frame)
     if alias != "":
       MessageDialog(frame, alias, "node alias:", wOk or wIconInformation).display()
@@ -251,14 +241,14 @@ proc p2pdaemon() {.thread.} =
 
   waitFor data.api.addHandler(ServerProtocols, streamHandler)
   var peers = waitFor data.api.listPeers()
-  consoleString = &"There are {peers.len} nodes connected\r\n"
+  consoleString = $peers.len & T"nodes connected" & "\r\n"
   console.appendText consoleString
 
   for p in peers:
     consoleString = p.peer.pretty()
     console.appendText consoleString
 
-  consoleString = &"Your PeerID is {alias}:{id.peer.pretty()}\r\n"
+  consoleString = T"Your PeerID is" & &"{alias}:{id.peer.pretty()}\r\n"
   console.appendText consoleString
   waitFor data.serveFut
 
@@ -271,17 +261,22 @@ proc switchSplitter(mode: int) =
   let size = frame.clientSize
   splitter.move(size.width div 2, size.height div 2)
 
-let menuFile = Menu(menuBar, "&File")
-menuFile.append(idOpen, "&Open\tCtrl + O", "Open a file")
+let menuFile = Menu(menuBar, T"File")
+menuFile.append(idOpen, T"Open", "Open a file")
 menuFile.appendSeparator()
-menuFile.append(idExit, "E&xit", "Exit the program.")
+menuFile.append(idExit, T"Exit", "Exit the program")
 
+let menuLayout = Menu(menuBar, T"Layout")
+menuLayout.appendRadioItem(idHorizontal, T"Horizontal").check()
+menuLayout.appendRadioItem(idVertical, T"Vertical")
 
-let menu = Menu(menuBar, "&Layout")
-menu.appendRadioItem(idHorizontal, "&Horizontal").check()
-menu.appendRadioItem(idVertical, "&Vertical")
-menu.appendSeparator()
-menu.append(idExit, "E&xit")
+let menuLang = Menu(menuBar, T"Language")
+if currentLanguage == "enUS":
+  menuLang.appendRadioItem(idenUS, "enUS").check()
+  menuLang.appendRadioItem(idzhCN, "zhCN")
+else:
+  menuLang.appendRadioItem(idenUS, "enUS")
+  menuLang.appendRadioItem(idzhCN, "zhCN").check()
 
 frame.wEvent_Menu do (event: wEvent):
   case event.id
@@ -297,11 +292,28 @@ frame.wEvent_Menu do (event: wEvent):
       switchSplitter(wSpHorizontal)
 
   of idOpen:  
-    let files = FileDialog(frame, style=wFdOpen or wFdFileMustExist).display()
+    var files = FileDialog(frame, style=wFdOpen or wFdFileMustExist).display()
     if files.len != 0:
-      var id = waitFor data.api.identity()
-      consoleString = &"[{now()}]:[{id.peer.pretty()}]: shared {files[0]}"
+      var alias = config["alias"].getStr
+      consoleString = &"[{now()}]:[{alias}]: "& T"shared" & files[0] & "\r\n"
       console.appendText consoleString
+      var (path,name,ext) = splitFile(files[0])
+      var label = alias & "/" & name & ext
+      echo label
+      let hyperlink = Hyperlink(frame, label= label, url=files[0])
+      hyperlink.wEvent_OpenUrl do (event: wEvent):
+        echo "open"  
+        # ShellExecute(0, "open", hyperlink.mUrl, nil, nil, SW_SHOW)
+      panel.autolayout """
+      H:|-[console]-[hyperlink]-|
+      """
+  of idenUS:
+    if currentLanguage != "enUS":
+      setCurrentLanguage "enUS"
+  of idzhCN:
+    if currentLanguage != "zhCN":
+      setCurrentLanguage "zhCN"
+
   else:
     discard
 
