@@ -26,8 +26,10 @@ type
 
 let app = App()
 let frame = Frame(title="2DeFi", size=(900, 600))
-let win = Frame(frame, title="console", size=(400, 400))
+
+let win = Frame(frame, size=(400, 400))
 let panel = Panel(win)
+
 
 let splitter = Splitter(frame, style = wSpHorizontal or wDoubleBuffered, size=(5, 5))
 let statusBar = StatusBar(frame)
@@ -36,9 +38,7 @@ let menuBar = MenuBar(frame)
 let console = TextCtrl(splitter.panel1, style= wTeRich or wTeMultiLine or wTeDontWrap or wVScroll or wTeReadOnly)
 console.font = Font(12, faceName="Consolas", encoding=wFontEncodingCp1252)
 # console.formatSelection(console.font, wWhite, wBlack)
-# SetTextColor(console.mHwnd, COLORREF wWhite)
 # console.setBackgroundColor wBlack
-
 
 var consoleString = ""
 
@@ -49,7 +49,7 @@ var writePipe = fromPipe(wfd)
 let command = TextCtrl(splitter.panel2, style= wBorderSunken)
 command.font = Font(12, faceName="Consolas", encoding=wFontEncodingCp1252)
 # command.setBackgroundColor wBlack
-command.formatSelection(command.font, wWhite, wBlack)
+# command.formatSelection(command.font, wWhite, wBlack)
 
 
 command.wEvent_TextEnter do (): 
