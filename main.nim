@@ -48,8 +48,6 @@ var writePipe = fromPipe(wfd)
 
 let command = TextCtrl(splitter.panel2, style= wBorderSunken)
 command.font = Font(12, faceName="Consolas", encoding=wFontEncodingCp1252)
-# command.setBackgroundColor wBlack
-command.formatSelection(command.font, wWhite, wBlack)
 
 var consoleString = ""
 
@@ -57,7 +55,7 @@ command.wEvent_TextEnter do ():
     var line = command.getValue()
     let res = waitFor writePipe.write(line & "\r\n")
     consoleString = line & "\r\n"
-    console.appendText consoleString
+    console.add consoleString
     command.clear
 
 
@@ -101,15 +99,15 @@ proc aliasDialog(owner: wWindow): string =
 template dhtFindPeer() {.dirty.} =
     var peerId = PeerID.init(parts[1]).value
     consoleString = T"Searching for peer " & peerId.pretty() & "\r\n"
-    console.appendText consoleString
+    console.add consoleString
 
     var id = await udata.api.dhtFindPeer(peerId)
     consoleString = T"Peer " & parts[1] & "found at addresses: " & "\r\n"
-    console.appendText consoleString
+    console.add consoleString
 
     for item in id.addresses:
       consoleString = $item & "\r\n"
-      console.appendText consoleString
+      console.add consoleString
 
 proc serveThread(udata: CustomData) {.async.} =
  {.gcsafe.}:
@@ -122,7 +120,7 @@ proc serveThread(udata: CustomData) {.async.} =
         if len(line) == 0:
           break
         consoleString = ">> " & line
-        console.appendText consoleString
+        console.add consoleString
 
   while true:
     try:
@@ -135,18 +133,18 @@ proc serveThread(udata: CustomData) {.async.} =
           var address = MultiAddress.init(multiCodec("p2p-circuit")).value
           address = MultiAddress.init(multiCodec("p2p"), peerId).value
           consoleString = T"Connecting to peer " & $address & "\r\n"
-          console.appendText consoleString
+          console.add consoleString
           echo consoleString
 
           await udata.api.connect(peerId, @[address], 30)
           consoleString = T"Opening stream to peer chat " & parts[1] & "\r\n"
-          console.appendText consoleString
+          console.add consoleString
           echo consoleString
 
           var stream = await udata.api.openStream(peerId, ServerProtocols)
           udata.remotes.add(stream.transp)
           consoleString = T"Connected to peer chat " & parts[1] & "\r\n"
-          console.appendText consoleString
+          console.add consoleString
           echo consoleString
 
           asyncCheck remoteReader(stream.transp)
@@ -160,10 +158,10 @@ proc serveThread(udata: CustomData) {.async.} =
         if len(parts) == 2:
           var peerId = PeerID.init(parts[1]).value
           consoleString = &"Searching for peers connected to peer {parts[1]}\r\n"
-          console.appendText consoleString
+          console.add consoleString
           var peers = await udata.api.dhtFindPeersConnectedToPeer(peerId) 
           consoleString = &"{len(peers)} connected to peer {parts[1]}\r\n"
-          console.appendText consoleString
+          console.add consoleString
           for item in peers:
             var peer = item.peer
             var addresses = newSeq[string]()
@@ -175,10 +173,10 @@ proc serveThread(udata: CustomData) {.async.} =
                 break
             if relay:
               consoleString = &"""{peer.pretty()} * [{addresses.join(", ")}]"""
-              console.appendText consoleString
+              console.add consoleString
             else:
               consoleString = &"""{peer.pretty()} [{addresses.join(", ")}]"""
-              console.appendText consoleString
+              console.add consoleString
       elif line.startsWith("/get"):
         var parts = line.split(" ")
         if len(parts) == 2:
@@ -213,7 +211,7 @@ proc p2pdaemon() {.thread.} =
   data.serveFut = serveThread(data)
 
   consoleString = T"Starting P2P node" & "\r\n"
-  console.appendText consoleString
+  console.add consoleString
 
   var alias = config["alias"].getStr
   if alias == "":
@@ -223,33 +221,36 @@ proc p2pdaemon() {.thread.} =
       config["alias"] = %alias
 
 
-  data.api = waitFor newDaemonApi({DHTFull, Bootstrap},id="")
+  data.api = waitFor newDaemonApi({DHTFull, Bootstrap, PSGossipSub}, id="")
   var id = waitFor data.api.identity()
   config["id"] = % id.peer.pretty()
   writeFile("config.json", $config)
   proc streamHandler(api: DaemonAPI, stream: P2PStream) {.async.} =
       {.gcsafe.}:
           consoleString = "Peer " & stream.peer.pretty() & " joined chat\r\n"
-          console.appendText consoleString
+          console.add consoleString
           data.remotes.add(stream.transp)
           while true:
               var line = await stream.transp.readLine()
               if len(line) == 0:
                   break
               consoleString = ">> " & line & "\r\n"
-              console.appendText consoleString
+              console.add consoleString
 
   waitFor data.api.addHandler(ServerProtocols, streamHandler)
   var peers = waitFor data.api.listPeers()
   consoleString = $peers.len & T"nodes connected" & "\r\n"
-  console.appendText consoleString
+  console.add consoleString
 
   for p in peers:
     consoleString = p.peer.pretty()
-    console.appendText consoleString
+    console.add consoleString
 
-  consoleString = T"Your PeerID is" & &"{alias}:{id.peer.pretty()}\r\n"
-  console.appendText consoleString
+  consoleString = T"Alias:" & alias & "\r\n" 
+  console.add consoleString
+  consoleString = T"ID:" & &"{id.peer.pretty()}\r\n"
+  console.add consoleString
+
   waitFor data.serveFut
 
 var p2pThread: Thread[void]
@@ -295,18 +296,23 @@ frame.wEvent_Menu do (event: wEvent):
     var files = FileDialog(frame, style=wFdOpen or wFdFileMustExist).display()
     if files.len != 0:
       var alias = config["alias"].getStr
-      consoleString = &"[{now()}]:[{alias}]: "& T"shared" & files[0] & "\r\n"
-      console.appendText consoleString
       var (path,name,ext) = splitFile(files[0])
       var label = alias & "/" & name & ext
-      echo label
-      let hyperlink = Hyperlink(frame, label= label, url=files[0])
+      consoleString = &"[{now()}]:[{alias}]: "& T"shared" 
+      console.add consoleString
+      var bestSize = console.getBestSize()
+      echo "getBestSize: ", bestSize
+      var insertionPoint = console.getInsertionPoint()
+      echo "getInsertionPoint: ", insertionPoint
+
+      let hyperlink = Hyperlink(frame, label=label, url=files[0], pos=(bestSize.width, insertionPoint))
       hyperlink.wEvent_OpenUrl do (event: wEvent):
         echo "open"  
         # ShellExecute(0, "open", hyperlink.mUrl, nil, nil, SW_SHOW)
-      panel.autolayout """
-      H:|-[console]-[hyperlink]-|
-      """
+      console.add "\r\n"
+      # panel.autolayout """
+      # H:|-[console]-[hyperlink]-|
+      # """
   of idenUS:
     if currentLanguage != "enUS":
       setCurrentLanguage "enUS"
