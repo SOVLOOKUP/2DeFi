@@ -82,7 +82,7 @@ wClass(wHyperlink of wStaticText):
 
   proc init*(self: wHyperlink, parent: wWindow, id = wDefaultID, label: string,
       url: string, pos = wDefaultPoint, size = wDefaultSize, style: wStyle = 0) =
-
+    echo "wHyperlink init"
     self.wStaticText.init(parent, id, label, pos, size, style)
     self.mUrl = url
     self.mMarkedColor = wRed
@@ -139,20 +139,34 @@ wClass(wHyperlink of wStaticText):
         self.mIsVisited = true
 
 when isMainModule:
-  import wNim/[wApp, wFrame, wIcon, wStatusBar, wPanel, wFont]
+  import wNim/[wApp, wFrame, wIcon, wStatusBar, wPanel, wFont, wFileDialog, wStaticText]
 
   let app = App()
   let frame = Frame(title="wHyperlink custom control")
 
+  let statusBar = StatusBar(frame)
   let panel = Panel(frame)
-  let hyperlink = Hyperlink(panel, label="Google", url="C:/2DeFi/config.nims", pos=(20, 20))
+
+  var hints = StaticText(panel, label="shared")
+  # var getBestSize = hints.getBestSize()
+  # echo "getBestSize: ",getBestSize
+  # var getInsertionPoint = hints.getInsertionPoint()
+  # echo "getInsertionPoint: ", getInsertionPoint
+  var files = FileDialog(panel, style=wFdOpen or wFdFileMustExist).display()
+  if files.len != 0:
+    let hyperlink = Hyperlink(panel, label=files[0], url=files[0], style=wStayOnTop)
+    panel.autolayout """
+    H:|-[hints]-[hyperlink]-|
+    """
+  # hyperlink.font = Font(18)
+  # hyperlink.hoverFont = Font(18, weight=wFontWeightBold, underline=true)
 
   # wEvent_OpenUrl will propagate upward, so we can catch it from it's parent window.
   panel.wEvent_OpenUrl do (event: wEvent):
-    echo "open"
-    # if not event.ctrlDown:
-    #   event.veto
-    #   statusBar.setStatusText("press ctrl key and then click to open the url.")
+    if event.ctrlDown:
+      event.veto
+      statusBar.setStatusText("press ctrl key and then click to open the url.")
 
   frame.show()
   app.mainLoop()
+

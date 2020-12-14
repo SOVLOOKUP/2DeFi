@@ -30,6 +30,10 @@ type
 let app = App()
 let frame = Frame(title="2DeFi", size=(900, 600))
 
+frame.wEvent_OpenUrl do (event: wEvent):
+  echo "open"  
+  # ShellExecute(0, "open", hyperlink.mUrl, nil, nil, SW_SHOW)
+
 let win = Frame(frame, size=(400, 400))
 let panel = Panel(win)
 
@@ -39,7 +43,7 @@ let splitter = Splitter(frame, style = wSpHorizontal or wDoubleBuffered, size=(5
 let statusBar = StatusBar(frame)
 let menuBar = MenuBar(frame)
 
-let console = TextCtrl(splitter.panel1, style= wTeRich or wTeMultiLine or wTeDontWrap or wVScroll or wTeReadOnly)
+let console = TextCtrl(splitter.panel1, style= wTeMultiLine or wVScroll or wTeReadOnly or SS_NOTIFY)
 console.font = Font(12, faceName="Consolas", encoding=wFontEncodingCp1252)
 
 var (rfd, wfd) = createAsyncPipe()
@@ -183,6 +187,33 @@ proc serveThread(udata: CustomData) {.async.} =
           var dag = parts[1]
           var value = await udata.api.dhtGetValue dag
           echo value
+      elif line.startsWith("/publish"):
+        var parts = line.split(" ")
+        if len(parts) == 3:
+          var topic = parts[1]
+          var message = parts[2]
+          var s = newSeq[byte](message.len)
+          copyMem(s[0].addr, message[0].addr, message.len)
+          echo topic, message
+          discard udata.api.pubsubPublish(topic, s)
+      elif line.startsWith("/listpeers"):
+        var parts = line.split(" ")
+        if len(parts) == 2:
+          var topic = parts[1]
+          echo topic
+          var peers = await udata.api.pubsubListPeers(topic)
+          echo peers
+      elif line.startsWith("/gettopics"):
+          var topics = await udata.api.pubsubGetTopics()
+          echo topics
+      elif line.startsWith("/sub"):
+        var parts = line.split(" ")
+        if len(parts) == 2:
+          var topic = parts[1]
+          proc callback(api: DaemonAPI,ticket: PubsubTicket,message: PubSubMessage): Future[bool] = 
+            echo message.data
+          var ticket = await udata.api.pubsubSubscribe(topic,callback)
+          echo ticket.topic
       elif line.startsWith("/exit"):
         break
       
@@ -221,7 +252,7 @@ proc p2pdaemon() {.thread.} =
       config["alias"] = %alias
 
 
-  data.api = waitFor newDaemonApi({DHTFull, Bootstrap, PSGossipSub}, id="")
+  data.api = waitFor newDaemonApi({DHTFull, Bootstrap, PSFloodSub}, id="")
   var id = waitFor data.api.identity()
   config["id"] = % id.peer.pretty()
   writeFile("config.json", $config)
@@ -305,13 +336,12 @@ frame.wEvent_Menu do (event: wEvent):
       var insertionPoint = console.getInsertionPoint()
       echo "getInsertionPoint: ", insertionPoint
 
-      let hyperlink = Hyperlink(frame, label=label, url=files[0], pos=(bestSize.width, insertionPoint))
-      hyperlink.wEvent_OpenUrl do (event: wEvent):
-        echo "open"  
-        # ShellExecute(0, "open", hyperlink.mUrl, nil, nil, SW_SHOW)
+      let hyperlink = Hyperlink(frame, label=label, url=files[0], style=wStayOnTop)
+
       console.add "\r\n"
+      let button = Button(frame, label="Button", pos=(200,200))
       # panel.autolayout """
-      # H:|-[console]-[hyperlink]-|
+      # V:|-[console]-[command]-[hyperlink]-|
       # """
   of idenUS:
     if currentLanguage != "enUS":
@@ -327,7 +357,9 @@ splitter.panel1.wEvent_Size do ():
   splitter.panel1.autolayout "HV:|[console]|"
 
 splitter.panel2.wEvent_Size do ():
-  splitter.panel2.autolayout "HV:|[command]|"
+  splitter.panel2.autolayout """
+    HV:|[command]|
+    """
 
 switchSplitter(wSpHorizontal)
 frame.center()
