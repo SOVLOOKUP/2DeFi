@@ -3,7 +3,7 @@ A Decentralized and Deduplicated File system for ownership/copyright, cost-effic
 
 # Current Functionality:
 
-- p2pd.exe is required to get DHT to work
+- p2pd.exe is prebuilt which is required to get DHT to work, you can build it by yourself from [go-libp2p-daemon](https://github.com/libp2p/go-libp2p-daemon)
 
 1. Connect a node and start to chat:
 
