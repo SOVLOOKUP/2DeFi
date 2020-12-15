@@ -111,7 +111,7 @@ proc `%`*(formatString: string; args: openArray[string]): string =
       inc i
   result = join(r)
 
-addT("enUS", "Please enter the alias:", "Please enter the alias:")
+addT("enUS", "Please enter the alias: ", "Please enter the alias: ")
 addT("enUS", "Starting P2P node", "Starting P2P node")
 addT("enUS", "OK", "OK")
 addT("enUS", "Cancel", "Cancel")
@@ -130,7 +130,7 @@ addT("enUS", "Connecting to peer ", "Connecting to peer ")
 
 
 
-addT("zhCN", "Please enter the alias:", "请输入节点别名:")
+addT("zhCN", "Please enter the alias: ", "请输入节点昵称: ")
 addT("zhCN", "Starting P2P node", "启动点对点节点")
 addT("zhCN", "OK", "确认")
 addT("zhCN", "Cancel", "取消")

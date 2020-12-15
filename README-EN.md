@@ -1,4 +1,4 @@
-# 2DeFi
+# 2DeFi-Deduplicated and Decentralized File system
 - Leverage idle storage and bandwith resource to share files and get sharing reward.
 - Obtain storage reward for supplying reliable storage space.
 - File shared/stored with deterministic ownership/copyright/privacy.
@@ -13,7 +13,7 @@
 
 - `/connect QmQx4FvYELrxrB7cPtwowpZbRAmNytitVPZCT6dGaJZScj`
 
-2. Search a node, which could be existing ipfs node:
+2. Search a node, which could penetrate NAT and establish connection with Internet:
 
 - `/search 12D3KooWFu9cU6GTbti1Xcqj9Z32dcpk5xwNzTriYYZzjKLTDAme`
 
@@ -31,5 +31,6 @@
 - [ ] Open hyperlink with default system application 
 - [ ] Record storage commitment and shared file information on blockchain
 - [ ] Open hyperlink with builtin application, including audio/video/picture/static Web 
+- [ ] Implement libp2p multiaddr and pub/sub protocol in Nim 
 - [ ] Ownership/Copyright fingerprint
 - [ ] Cross platform GUI including Linux/MacOS/Mobile phone

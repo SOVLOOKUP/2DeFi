@@ -10,7 +10,7 @@ import wHyperlink
 import i18n
 
 when not(compileOption("threads")):
-  {.fatal: "Please, compile this program with the --threads:on option!".}
+  {.fatal: "compile this program with the --threads:on option!".}
 
 const
   ServerProtocols = @["/test-chat-stream"]
@@ -74,7 +74,7 @@ proc aliasDialog(owner: wWindow): string =
   let dialog = Frame(owner=owner, size=(320, 200), style=wCaption or wSystemMenu)
   let panel = Panel(dialog)
 
-  let statictext = StaticText(panel, label= T"Please enter the alias:", pos=(10, 10))
+  let statictext = StaticText(panel, label= T"Please enter the alias: ", pos=(10, 10))
   let textctrl = TextCtrl(panel, pos=(20, 50), size=(270, 30), style=wBorderSunken)
   let buttonOk = Button(panel, label= T"OK", size=(90, 30), pos=(100, 120))
   let buttonCancel = Button(panel, label= T"Cancel", size=(90, 30), pos=(200, 120))
@@ -260,12 +260,7 @@ proc p2pdaemon() {.thread.} =
       MessageDialog(frame, alias, "node alias:", wOk or wIconInformation).display()
       config["alias"] = %alias
 
-  # var bootstrapNodes = @["/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
-  # "/dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
-  # "/dnsaddr/bootstrap.libp2p.io/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
-  # "/dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
-  # "/ip4/104.131.131.82/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
-  # "/ip4/104.131.131.82/udp/4001/quic/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ"]
+
   var id = waitFor data.api.identity()
   config["id"] = % id.peer.pretty()
   writeFile("config.json", $config)
@@ -287,7 +282,7 @@ proc p2pdaemon() {.thread.} =
   console.add consoleString
 
   for p in peers:
-    consoleString = p.peer.pretty()
+    consoleString = p.peer.pretty() & "\r\n"
     console.add consoleString
 
   consoleString = T"Alias: " & alias & "\r\n" 
@@ -339,7 +334,7 @@ frame.wEvent_Menu do (event: wEvent):
       switchSplitter(wSpHorizontal)
 
   of idOpen:  
-    var files = FileDialog(frame, style=wFdOpen or wFdFileMustExist).display()
+    var files = FileDialog(frame, style=wFdOpen).display()
     if files.len != 0:
       var alias = config["alias"].getStr
       var (path,name,ext) = splitFile(files[0])
