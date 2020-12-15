@@ -138,7 +138,7 @@ proc main() {.async.} =
     data.consoleFd = rfd
 
     data.serveFut = serveThread(data)
-    data.api = await newDaemonApi({DHTFull, Bootstrap,PSGossipSub},id="", bootstrapNodes = bootstrapNodes)
+    data.api = await newDaemonApi({DHTFull, Bootstrap,PSGossipSub},id="", bootstrapNodes = bootstrapNodes, daemon="./p2pd")
 
     var thread: Thread[AsyncFD]
     thread.createThread(threadMain, wfd)
