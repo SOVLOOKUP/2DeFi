@@ -82,7 +82,6 @@ wClass(wHyperlink of wStaticText):
 
   proc init*(self: wHyperlink, parent: wWindow, id = wDefaultID, label: string,
       url: string, pos = wDefaultPoint, size = wDefaultSize, style: wStyle = 0) =
-    echo "wHyperlink init"
     self.wStaticText.init(parent, id, label, pos, size, style)
     self.mUrl = url
     self.mMarkedColor = wRed

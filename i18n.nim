@@ -124,7 +124,10 @@ addT("enUS", "Vertical", "Vertical")
 addT("enUS", "Language", "Language")
 addT("enUS", "nodes connected", "nodes connected")
 addT("enUS", "shared", "shared")
-addT("enUS", "Alias:", "Alias:")
+addT("enUS", "Alias: ", "Alias: ")
+addT("enUS", "Searching for peer ", "Searching for peer ")
+addT("enUS", "Connecting to peer ", "Connecting to peer ")
+
 
 
 addT("zhCN", "Please enter the alias:", "请输入节点别名:")
@@ -140,5 +143,7 @@ addT("zhCN", "Vertical", "垂直")
 addT("zhCN", "Language", "语言")
 addT("zhCN", "nodes connected", "个节点已连接")
 addT("zhCN", "shared", "分享了")
-addT("zhCN", "Alias:", "昵称:")
+addT("zhCN", "Alias: ", "昵称: ")
+addT("zhCN", "Searching for peer ", "搜索节点")
+addT("zhCN", "Connecting to peer ", "连接节点")
 

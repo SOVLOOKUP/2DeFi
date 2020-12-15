@@ -140,7 +140,7 @@ type
 
   PubSubMessage* = object
     peer*: PeerID
-    data*: seq[byte]
+    data*: string
     seqno*: seq[byte]
     topics*: seq[string]
     signature*: Signature
@@ -431,7 +431,7 @@ proc requestPSListPeers(topic: string): ProtoBuffer =
   result.write(initProtoField(8, msg))
   result.finish()
 
-proc requestPSPublish(topic: string, data: openarray[byte]): ProtoBuffer =
+proc requestPSPublish(topic: string, data: string): ProtoBuffer =
   ## https://github.com/libp2p/go-libp2p-daemon/blob/master/pubsub.go
   ## Processing function `doPubsubPublish(req *pb.PSRequest)`.
   let msgid = cast[uint](PSRequestType.PUBLISH)
@@ -1249,21 +1249,21 @@ proc pubsubListPeers*(api: DaemonAPI,
     await api.closeConnection(transp)
 
 proc pubsubPublish*(api: DaemonAPI, topic: string,
-                    value: seq[byte]) {.async.} =
+                    value: string) {.async.} =
   ## Get list of peer identifiers which are subscribed to topic ``topic``.
   var transp = await api.newConnection()
   try:
     var pb = await transp.transactMessage(requestPSPublish(topic, value))
     withMessage(pb) do:
-      discard
+      echo pb
   finally:
     await api.closeConnection(transp)
 
 proc getPubsubMessage*(pb: var ProtoBuffer): PubSubMessage =
-  result.data = newSeq[byte]()
+  result.data = ""
   result.seqno = newSeq[byte]()
   discard pb.getValue(1, result.peer)
-  discard pb.getBytes(2, result.data)
+  discard pb.getString(2, result.data)
   discard pb.getBytes(3, result.seqno)
   var item = newSeq[byte]()
   while true:
