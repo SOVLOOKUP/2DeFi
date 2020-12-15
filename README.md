@@ -9,7 +9,7 @@
 
 # 现在的功能:
 
-- 为了能最快的让DHT正常工作，p2pd.exe已经提前编译好, 并打开了Gossip pub/sub功能，如果担心安全问题，你仍然可以自己编译[go-libp2p-daemon](https://github.com/libp2p/go-libp2p-daemon)
+- 为了能最快的让DHT正常工作，p2pd.exe已经提前编译好, 并打开了Gossip pub/sub功能，如果担心安全问题，仍然可以自己编译[go-libp2p-daemon](https://github.com/libp2p/go-libp2p-daemon)
 
 1. 连接节点开始点对点聊天:
 
@@ -19,7 +19,7 @@
 
 - `/search 12D3KooWFu9cU6GTbti1Xcqj9Z32dcpk5xwNzTriYYZzjKLTDAme`
 
-3. 发布和订阅。打开文件会在节点昵称频道下发布提示信息，订阅用户收到分享的文件超链接（实现中）：
+3. 发布和订阅。打开文件会在节点昵称频道自动发布，订阅用户收到分享的文件超链接（实现中）：
 
 - `/sub 新闻`
 - `/pub 新闻 "今日热点"`
@@ -34,5 +34,5 @@
 - [ ] 存储贡献和分享的文件信息存储在区块链上
 - [ ] 文件超链接使用内置应用打开
 - [ ] 文件所有权/版权/隐私算法
-- [ ] Liunx/MacOS/手机端跨平台
+- [ ] Linux/MacOS/手机端跨平台
 
