@@ -15,10 +15,6 @@ when not(compileOption("threads")):
 const
   ServerProtocols = @["/test-chat-stream"]
 
-type Message = object
-  topic: string
-  content: string
-
 type
   CustomData = ref object
     api: DaemonAPI
@@ -26,7 +22,6 @@ type
     consoleFd: AsyncFD
     wfd: AsyncFD
     serveFut: Future[void]
-    publish: Channel[Message]
 
 type
   MenuID = enum
@@ -63,18 +58,21 @@ var consoleString = ""
 command.wEvent_TextEnter do (): 
     var line = command.getValue()
     let res = waitFor writePipe.write(line & "\r\n")
-    consoleString = line & "\r\n"
-    console.add consoleString
+    if line.startsWith("/"):
+      consoleString = line & "\r\n"
+      console.add consoleString
     command.clear
 
 
 proc aliasDialog(owner: wWindow): string =
   var alias = ""
 
-  let dialog = Frame(owner=owner, size=(320, 200), style=wCaption or wSystemMenu)
+  let dialog = Frame(owner=owner, size=(320, 200), style=wCaption)
   let panel = Panel(dialog)
 
-  let statictext = StaticText(panel, label= T"Please enter the alias: ", pos=(10, 10))
+  var nameAlias = T"Enter the alias"
+  echo nameAlias
+  let statictext = StaticText(panel, label= nameAlias, pos=(10, 10))
   let textctrl = TextCtrl(panel, pos=(20, 50), size=(270, 30), style=wBorderSunken)
   let buttonOk = Button(panel, label= T"OK", size=(90, 30), pos=(100, 120))
   let buttonCancel = Button(panel, label= T"Cancel", size=(90, 30), pos=(200, 120))
@@ -104,7 +102,6 @@ proc aliasDialog(owner: wWindow): string =
 
   result = alias
 
-
 template dhtFindPeer() {.dirty.} =
     var peerId = PeerID.init(parts[1]).value
     consoleString = T"Searching for peer " & peerId.pretty() & "\r\n"
@@ -120,21 +117,20 @@ template dhtFindPeer() {.dirty.} =
 
 
 var data = CustomData()
-var bootstrapNodes = @["/ip4/45.77.187.78/tcp/4001/p2p/12D3KooWFu9cU6GTbti1Xcqj9Z32dcpk5xwNzTriYYZzjKLTDAme"]
+var bootstrapNodes = @[""]
 data.api = waitFor newDaemonApi({DHTFull, Bootstrap, PSGossipSub}, id="", bootstrapNodes = bootstrapNodes, daemon="./p2pd.exe")
-data.publish.open()
 
 proc serveThread(udata: CustomData) {.async.} =
  {.gcsafe.}:
   var transp = fromPipe(udata.consoleFd)
 
-  proc remoteReader(transp: StreamTransport) {.async.} =
+  proc remoteReader(peer:string,transp: StreamTransport) {.async.} =
     {.gcsafe.}:
       while true:
         var line = await transp.readLine()
         if len(line) == 0:
           break
-        consoleString = ">> " & line
+        consoleString = &"{peer}:" & line & "\r\n"
         console.add consoleString
 
   while true:
@@ -162,7 +158,7 @@ proc serveThread(udata: CustomData) {.async.} =
           console.add consoleString
           echo consoleString
 
-          asyncCheck remoteReader(stream.transp)
+          asyncCheck remoteReader(parts[1], stream.transp)
       elif line.startsWith("/search"):
         var parts = line.split(" ")
         if len(parts) == 2:
@@ -187,10 +183,10 @@ proc serveThread(udata: CustomData) {.async.} =
                 relay = true
                 break
             if relay:
-              consoleString = &"""{peer.pretty()} * [{addresses.join(", ")}]"""
+              consoleString = &"""{peer.pretty()} * [{addresses.join(", ")}]""" & "\r\n"
               console.add consoleString
             else:
-              consoleString = &"""{peer.pretty()} [{addresses.join(", ")}]"""
+              consoleString = &"""{peer.pretty()} [{addresses.join(", ")}]""" & "\r\n"
               console.add consoleString
       elif line.startsWith("/get"):
         var parts = line.split(" ")
@@ -229,7 +225,8 @@ proc serveThread(udata: CustomData) {.async.} =
       
       else:
         var msg = line & "\r\n"
-        consoleString = "<< " & line
+        var alias = config["alias"].getStr
+        consoleString = &"{alias}:" & line  & "\r\n"
         console.add consoleString
         var pending = newSeq[Future[int]]()
         for item in udata.remotes:
@@ -237,7 +234,7 @@ proc serveThread(udata: CustomData) {.async.} =
         if len(pending) > 0:
           var results = await all(pending)
     except:
-      consoleString = getCurrentException().msg
+      consoleString = getCurrentException().msg & "\r\n"
       console.add consoleString
 
 
@@ -257,7 +254,6 @@ proc p2pdaemon() {.thread.} =
   if alias == "":
     alias = aliasDialog(frame)
     if alias != "":
-      MessageDialog(frame, alias, "node alias:", wOk or wIconInformation).display()
       config["alias"] = %alias
 
 
@@ -289,7 +285,6 @@ proc p2pdaemon() {.thread.} =
   console.add consoleString
   consoleString = T"ID: " & &"{id.peer.pretty()}\r\n"
   console.add consoleString
-
 
   waitFor data.serveFut
 

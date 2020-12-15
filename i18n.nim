@@ -11,10 +11,10 @@ proc setCurrentLanguage*(newLanguage: string) =
   writeFile("config.json", $config)
 
 proc getCurrentLanguage*(): string = currentLanguage
-type Translation* = Table[string, string]
+type Translation* = OrderedTable[string, string]
 
 
-var translations: Table[string, Translation] = initTable[string, Translation]()
+var translations: OrderedTable[string, Translation] = initOrderedTable[string, Translation]()
 
 proc registerTranslation*(lang: string; t: Translation) = translations[lang] = t
 
@@ -22,7 +22,7 @@ proc addT*(lang: string; key, val: string) =
   if translations.hasKey lang:
       translations[lang][key] = val
   else: 
-    translations[lang] = initTable[string,string]()
+    translations[lang] = initOrderedTable[string,string]()
 
 proc T*(x: string): string =  
   let y = translations[currentLanguage]
@@ -111,7 +111,6 @@ proc `%`*(formatString: string; args: openArray[string]): string =
       inc i
   result = join(r)
 
-addT("enUS", "Please enter the alias: ", "Please enter the alias: ")
 addT("enUS", "Starting P2P node", "Starting P2P node")
 addT("enUS", "OK", "OK")
 addT("enUS", "Cancel", "Cancel")
@@ -130,7 +129,6 @@ addT("enUS", "Connecting to peer ", "Connecting to peer ")
 
 
 
-addT("zhCN", "Please enter the alias: ", "请输入节点昵称: ")
 addT("zhCN", "Starting P2P node", "启动点对点节点")
 addT("zhCN", "OK", "确认")
 addT("zhCN", "Cancel", "取消")
@@ -146,4 +144,9 @@ addT("zhCN", "shared", "分享了")
 addT("zhCN", "Alias: ", "昵称: ")
 addT("zhCN", "Searching for peer ", "搜索节点")
 addT("zhCN", "Connecting to peer ", "连接节点")
+addT("zhCN", "Enter the alias", "为你的节点起一个容易记忆的名字吧")
+addT("zhCN", "Opening stream to peer chat ", "打开点对点聊天流")
+addT("zhCN", "Connected to peer chat ", "连接到点对点聊天")
 
+
+echo translations["zhCN"]
